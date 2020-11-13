@@ -1,3 +1,4 @@
+from numpy.core import machar
 import pandas as pd
 import numpy as np
 import re
@@ -36,6 +37,11 @@ class GenesRelationError(RuntimeError):
 
 
 class VariantUndefinedError(RuntimeError):
+    def __init__(self, message: str):
+        self.message = message
+
+
+class ListsUnEqualLengthError(RuntimeError):
     def __init__(self, message: str):
         self.message = message
 
@@ -301,34 +307,93 @@ class CDx_Data():
 
         return df
 
-    def select_by_sample_ids(self, sample_ids: list):
+    def _fuzzy_id(self, regex: re.Pattern, text: str) -> str:
+        """transform a sample id into fuzzy mode according the regex pattern
+
+        Args:
+            regex (re.Pattern): The info retains are in the capture patterns
+            text (str): input sample id
+
+        Returns:
+            str: fuzzy mode sample id
+        """
+        matches = regex.findall(text)
+        if matches:
+            text = '_'.join(matches[0])
+
+        return text
+
+    def select_by_sample_ids(self,
+                             sample_ids: list,
+                             fuzzy: bool = False,
+                             regex_str: str = r'(\d+)[A-Z](\d+)',
+                             study_ids: list = []):
         """Select samples via a list of sample IDs.
 
         Args:
             sample_ids (list): sample ids list.
+            fuzzy (bool): fuzzy mode.
+            regex_str (str): The match principle for fuzzy match. The info in the regex capture patterns must be matched for a certifired record. Default for r'(\d+)[A-Z](\d+)'.  
+            study_ids: (list): The corresponding study id of each sample ids. Length of sample_ids and study_ids must be the same.
+
+        Raises:
+            ListsUnEqualLengthError: Length of sample_ids and study_ids are not equal.
 
         Returns:
             CDx: CDx object of selected samples.
         """
-        if not self.cli is None:
-            cli_df = self.cli[self.cli['sampleId'].isin(sample_ids)]
+        if fuzzy:
+            regex = re.compile(regex_str)
+
+            # fuzzy the input ids
+            target_ids = []
+            fuzzy_to_origin = {}
+            transform = lambda x: self._fuzzy_id(regex, x)
+            for sample_id in sample_ids:
+                fuzzy_sample_id = self._fuzzy_id(regex, sample_id)
+                fuzzy_to_origin[fuzzy_sample_id] = sample_id
+                target_ids.append(fuzzy_sample_id)
         else:
-            cli_df = None
+            target_ids = sample_ids
+            transform = lambda x: x
+
+        # match
+        sample_id_bool = self.cli['sampleId'].map(transform).isin(target_ids)
+        if study_ids:
+            if len(study_ids) != len(sample_ids):
+                raise ListsUnEqualLengthError('Error')
+
+            sub_cli_df = self.cli[sample_id_bool]
+            study_id_bool = sub_cli_df.apply(
+                lambda x: x['studyId'] == study_ids[target_ids.index(
+                    transform(x['sampleId']))],
+                axis=1)
+            sample_id_bool = sample_id_bool & study_id_bool
+
+        # construct new CDx_Data object
+        # CDx_Data always have a cli
+        cli_df = self.cli[sample_id_bool].copy()
+
+        # add a column of query ids for fuzzy match
+        if fuzzy:
+            cli_df['queryId'] = cli_df['sampleId'].map(
+                lambda x: fuzzy_to_origin[transform(x)])
 
         if not self.mut is None:
             mut_df = self.mut[self.mut['Tumor_Sample_Barcode'].isin(
-                sample_ids)]
+                cli_df['sampleId'])]
         else:
             mut_df = None
 
         if not self.cnv is None:
             cnv_df = self.cnv[self.cnv['Tumor_Sample_Barcode'].isin(
-                sample_ids)]
+                cli_df['sampleId'])]
         else:
             cnv_df = None
 
         if not self.sv is None:
-            sv_df = self.sv[self.sv['Tumor_Sample_Barcode'].isin(sample_ids)]
+            sv_df = self.sv[self.sv['Tumor_Sample_Barcode'].isin(
+                cli_df['sampleId'])]
         else:
             sv_df = None
 
@@ -458,12 +523,13 @@ class CDx_Data():
         else:
             raise GenesRelationError(
                 f'value of "how" must be "or" or "and", here comes "{how}"')
-                
+
         # the last column is "track_type"
         sample_ids = is_posi_sample[is_posi_sample][:-1].index
 
         return self.select_by_sample_ids(sample_ids)
 
+    # Analysis
     def tableone(self):
         pass
 
