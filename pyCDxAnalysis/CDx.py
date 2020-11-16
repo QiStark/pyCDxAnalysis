@@ -632,5 +632,17 @@ class CDx_Data():
     def sample_size_by_time(self):
         pass
 
-    def sample_size(self):
-        pass
+    def sample_size(self, groupby=''):
+        """Return the sample size by the way user defined
+
+        Args:
+            groupby (str, optional): Column name in the CDx_Data DataFrame. Defaults to ''.
+
+        Returns:
+            Union[int, pd.Series]: Sample size. a pd.Series when groupby options passed.
+        """
+        if groupby:
+            return self.crosstab.iloc[:, :-1].groupby(
+                self.crosstab.iloc[:, :-1].loc[groupby], axis=1).size()
+        else:
+            return len(self.crosstab.columns) - 1
