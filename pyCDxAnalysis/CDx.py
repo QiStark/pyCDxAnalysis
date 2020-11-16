@@ -1,4 +1,6 @@
+from typing import Tuple, Union
 from numpy.core import machar
+from numpy.core.numeric import cross
 import pandas as pd
 import numpy as np
 import re
@@ -545,8 +547,90 @@ class CDx_Data():
     def survival(self):
         pass
 
-    def positive_rate(self):
-        pass
+    # 画图的程序是否内置？
+    def test_positive_rate(self,
+                           groupby='',
+                           groupby_genes=False,
+                           groupby_variant_type=False,
+                           genes_to_observe=[],
+                           variant_type_to_observe=[]):
+        """Calculate the positvie rate for CDx object in user defined way
+
+        Args:
+            groupby (str, optional): Column name in the CDx_Data.cli DataFrame. Defaults to ''.
+            groupby_genes (bool, optional): Groupby mutate genes. Defaults to False.
+            groupby_variant_type (bool, optional): Groupby variant type, including MUTATIONS, CNV and SV. Defaults to False.
+            genes_to_observe (list, optional): Genes list that should be considered. Defaults to [].
+            variant_type_to_observe (list, optional): Variant type that shoud be considered. Defaults to [].
+
+        Returns:
+            Union[float,pd.Series]: A pd.Series when groupby options passed, a float value when not.
+        """
+
+        crosstab = self.crosstab[self.crosstab['track_type'] != 'CLINICAL']
+
+        if genes_to_observe:
+            crosstab = crosstab.reindex(index=genes_to_observe)
+
+        if variant_type_to_observe:
+            crosstab = crosstab[crosstab['track_type'].isin(
+                variant_type_to_observe)]
+
+        test_posi_rate = None
+        # skip the last track_type column
+        if groupby:
+            test_posi_rate = crosstab.iloc[:, :-1].groupby(
+                self.crosstab.loc[groupby][:-1],
+                axis=1).apply(self._crosstab_to_positive_rate)
+        elif groupby_genes:
+            test_posi_rate = crosstab.iloc[:, :-1].groupby(level=0).apply(
+                self._crosstab_to_positive_rate)
+        elif groupby_variant_type:
+            test_posi_rate = crosstab.iloc[:, :-1].groupby(
+                crosstab['track_type']).apply(self._crosstab_to_positive_rate)
+        else:
+            test_posi_rate = self._crosstab_to_positive_rate(
+                crosstab.iloc[:, :-1])
+
+        return test_posi_rate
+
+    def _crosstab_to_positive_rate(self, df: pd.DataFrame):
+        """Calculate a crosstab to generate a positive rate value for notnull cell
+
+        Args:
+            df (pd.DataFrame): CDx`s crosstab property
+
+        Returns:
+            float: positive rate
+        """
+        posi_rate = self._positive_rate(df.apply(lambda x: any(pd.notnull(x))),
+                                        [True])[-1]
+        return posi_rate
+
+    def _positive_rate(self, values: list,
+                       positive_tags: list) -> Tuple[int, int, float]:
+        """Calculate positive tags marked values percentage in the total ones
+
+        Args:
+            values (list): the total values
+            positive_tags (list): values that are regarded as positive values
+
+        Returns:
+            tuple: tuple for total values number, effective values number and percentage of positive values in the input values
+        """
+        values = list(values)
+
+        total_value_num = len(values)
+        missing_value_num = values.count(np.nan)
+        effective_value_num = total_value_num - missing_value_num
+        positvie_event_num = sum([values.count(tag) for tag in positive_tags])
+
+        positive_rate = 0 if effective_value_num == 0 else positvie_event_num / effective_value_num
+
+        return (total_value_num, effective_value_num, positive_rate)
 
     def sample_size_by_time(self):
+        pass
+
+    def sample_size(self):
         pass
