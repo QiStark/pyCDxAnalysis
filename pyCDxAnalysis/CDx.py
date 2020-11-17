@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import re
 import sys
+import os
 
 from pandas.core.algorithms import isin, value_counts
 import pypeta
@@ -120,6 +121,25 @@ class CDx_Data():
             self._set_cli()
 
         self.crosstab = self.get_crosstab()
+
+    def write_files(self, path: str = './'):
+        """Write CDx_Data properties to 4 seprated files
+
+        Args:
+            path (str, optional): Path to write files. Defaults to './'.
+        """
+        self.cli.to_csv(os.path.join(path, 'sample_info.txt'),
+                        index=None,
+                        sep='\t')
+        self.mut.to_csv(os.path.join(path, 'mut_info.txt'),
+                        index=None,
+                        sep='\t')
+        self.cnv.to_csv(os.path.join(path, 'cnv_info_gistic.txt'),
+                        index=None,
+                        sep='\t')
+        self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
+                       index=None,
+                       sep='\t')
 
     def _set_cli(self):
         """Set the cli attribute, generate a void DataFrame when it is not specified. 
