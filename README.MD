@@ -15,4 +15,5 @@ pip install pyCDxAnalysis
 ```
 
 ## Example usage
-An executable demonstration of the package is available on GitHub as a Jupyter Notebook, https://github.com/JaylanLiu/pyCDxAnalysis/tree/main/pyCDxAnalysispy/pyCDxAnalysis_test.ipynb.
+An executable demonstration of the package is available on GitHub as a Jupyter Notebook, 
+https://github.com/JaylanLiu/pyCDxAnalysis/blob/main/pyCDxAnalysis/pyCDxAnalysis_test.ipynb.
