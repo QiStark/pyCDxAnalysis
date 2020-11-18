@@ -1,0 +1,17 @@
+Tumor_Sample_Barcode	Hugo_Symbol	copy_Num	status	hasDrug
+test45	CDK12	8.17	copy number gain	N
+test45	FGF19	5.73	copy number gain	N
+test45	FGF4	6.73	copy number gain	N
+test45	ERBB2	9.36	copy number gain	Y
+test45	RARA	6.26	copy number gain	N
+test45	ZNF217	11.71	copy number gain	N
+test31	CCNE1	7.15	copy number gain	N
+test31	EGFR	21.14	copy number gain	Y
+test13	RB1	0.45	copy number loss	N
+test22	FGF4	4.02	copy number gain	N
+test15	FGFR1	10.76	copy number gain	Y
+test25	MYCN	5.65	copy number gain	N
+test27	CDK6	5.59	copy number gain	Y
+test27	MET	11.58	copy number gain	Y
+test34	B2M	1.01	copy number loss	N
+test24	B2M	1.02	copy number loss	N

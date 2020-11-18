@@ -1,16 +1,12 @@
 from typing import Tuple, Union
-from numpy.core import machar
-from numpy.core.numeric import cross
 import pandas as pd
 import numpy as np
 import re
-import sys
 import os
+from tableone import TableOne
 
-from pandas.core.algorithms import isin, value_counts
 import pypeta
 from pypeta import Peta
-from collections import defaultdict
 
 
 class SampleIdError(RuntimeError):
@@ -134,7 +130,7 @@ class CDx_Data():
         self.mut.to_csv(os.path.join(path, 'mut_info.txt'),
                         index=None,
                         sep='\t')
-        self.cnv.to_csv(os.path.join(path, 'cnv_info_gistic.txt'),
+        self.cnv.to_csv(os.path.join(path, 'cnv_info.txt'),
                         index=None,
                         sep='\t')
         self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
@@ -252,7 +248,12 @@ class CDx_Data():
 
             sub_dfs.append(sv)
 
-        return pd.concat(sub_dfs)
+        # pandas does not support reindex with duplicated index, so turn into multiIndex
+        crosstab = pd.concat(sub_dfs)
+        crosstab = crosstab.set_index('track_type', append=True)
+        crosstab = crosstab.swaplevel()
+
+        return crosstab
 
     #如何构建通用的选择接口，通过变异、基因、癌种等进行选择，并支持“或”和“且”的逻辑运算
     #该接口至关重要，对变异入选条件的选择会影响到crosstab，
@@ -529,31 +530,118 @@ class CDx_Data():
         Returns:
             CDx: CDx object of selected samples.
         """
-        variant_crosstab = self.crosstab[
-            self.crosstab['track_type'] != 'CLINICAL']
-
-        if variant_type:
-            variant_crosstab = variant_crosstab[
-                variant_crosstab['track_type'].isin(variant_type)]
+        variant_crosstab = self.crosstab.reindex(index=variant_type, level=0)
 
         if how == 'or':
             is_posi_sample = variant_crosstab.reindex(
-                index=genes).apply(lambda x: any(pd.notnull(x)))
+                index=genes, level=1).apply(lambda x: any(pd.notnull(x)))
         elif how == 'and':
             is_posi_sample = variant_crosstab.reindex(
-                index=genes).apply(lambda x: all(pd.notnull(x)))
+                index=genes, level=1).apply(lambda x: all(pd.notnull(x)))
         else:
             raise GenesRelationError(
                 f'value of "how" must be "or" or "and", here comes "{how}"')
 
         # the last column is "track_type"
-        sample_ids = is_posi_sample[is_posi_sample][:-1].index
+        sample_ids = is_posi_sample[is_posi_sample].index
 
         return self.select_by_sample_ids(sample_ids)
 
     # Analysis
-    def tableone(self):
-        pass
+    def tableone(self, **kwargs) -> TableOne:
+        """Generate summary table1 using tableone library. Please refer to https://github.com/tompollard/tableone
+
+        Args:
+            columns : list, optional
+                List of columns in the dataset to be included in the final table.
+            categorical : list, optional
+                List of columns that contain categorical variables.
+            groupby : str, optional
+                Optional column for stratifying the final table (default: None).
+            nonnormal : list, optional
+                List of columns that contain non-normal variables (default: None).
+            min_max: list, optional
+                List of variables that should report minimum and maximum, instead of
+                standard deviation (for normal) or Q1-Q3 (for non-normal).
+            pval : bool, optional
+                Display computed P-Values (default: False).
+            pval_adjust : str, optional
+                Method used to adjust P-Values for multiple testing.
+                The P-values from the unadjusted table (default when pval=True)
+                are adjusted to account for the number of total tests that were performed.
+                These adjustments would be useful when many variables are being screened
+                to assess if their distribution varies by the variable in the groupby argument.
+                For a complete list of methods, see documentation for statsmodels multipletests.
+                Available methods include ::
+
+                `None` : no correction applied.
+                `bonferroni` : one-step correction
+                `sidak` : one-step correction
+                `holm-sidak` : step down method using Sidak adjustments
+                `simes-hochberg` : step-up method (independent)
+                `hommel` : closed method based on Simes tests (non-negative)
+
+            htest_name : bool, optional
+                Display a column with the names of hypothesis tests (default: False).
+            htest : dict, optional
+                Dictionary of custom hypothesis tests. Keys are variable names and
+                values are functions. Functions must take a list of Numpy Arrays as
+                the input argument and must return a test result.
+                e.g. htest = {'age': myfunc}
+            missing : bool, optional
+                Display a count of null values (default: True).
+            ddof : int, optional
+                Degrees of freedom for standard deviation calculations (default: 1).
+            rename : dict, optional
+                Dictionary of alternative names for variables.
+                e.g. `rename = {'sex':'gender', 'trt':'treatment'}`
+            sort : bool or str, optional
+                If `True`, sort the variables alphabetically. If a string
+                (e.g. `'P-Value'`), sort by the specified column in ascending order.
+                Default (`False`) retains the sequence specified in the `columns`
+                argument. Currently the only columns supported are: `'Missing'`,
+                `'P-Value'`, `'P-Value (adjusted)'`, and `'Test'`.
+            limit : int or dict, optional
+                Limit to the top N most frequent categories. If int, apply to all
+                categorical variables. If dict, apply to the key (e.g. {'sex': 1}).
+            order : dict, optional
+                Specify an order for categorical variables. Key is the variable, value
+                is a list of values in order.  {e.g. 'sex': ['f', 'm', 'other']}
+            label_suffix : bool, optional
+                Append summary type (e.g. "mean (SD); median [Q1,Q3], n (%); ") to the
+                row label (default: True).
+            decimals : int or dict, optional
+                Number of decimal places to display. An integer applies the rule to all
+                variables (default: 1). A dictionary (e.g. `decimals = {'age': 0)`)
+                applies the rule per variable, defaulting to 1 place for unspecified
+                variables. For continuous variables, applies to all summary statistics
+                (e.g. mean and standard deviation). For categorical variables, applies
+                to percentage only.
+            overall : bool, optional
+                If True, add an "overall" column to the table. Smd and p-value
+                calculations are performed only using stratified columns.
+            display_all : bool, optional
+                If True, set pd. display_options to display all columns and rows.
+                (default: False)
+            dip_test : bool, optional
+                Run Hartigan's Dip Test for multimodality. If variables are found to
+                have multimodal distributions, a remark will be added below the Table 1.
+                (default: False)
+            normal_test : bool, optional
+                Test the null hypothesis that a sample come from a normal distribution.
+                Uses scipy.stats.normaltest. If variables are found to have non-normal
+                distributions, a remark will be added below the Table 1.
+                (default: False)
+            tukey_test : bool, optional
+                Run Tukey's test for far outliers. If variables are found to
+                have far outliers, a remark will be added below the Table 1.
+                (default: False)
+
+        Returns:
+            pd.DataFrame: Summary of the Data
+        """
+        table1 = TableOne(self.cli, **kwargs)
+        return table1
 
     def pathway(self):
         pass
@@ -573,7 +661,7 @@ class CDx_Data():
                            groupby_genes=False,
                            groupby_variant_type=False,
                            genes_to_observe=[],
-                           variant_type_to_observe=[]):
+                           variant_type_to_observe=['MUTATIONS', 'CNV', 'SV']):
         """Calculate the positvie rate for CDx object in user defined way
 
         Args:
@@ -581,36 +669,32 @@ class CDx_Data():
             groupby_genes (bool, optional): Groupby mutate genes. Defaults to False.
             groupby_variant_type (bool, optional): Groupby variant type, including MUTATIONS, CNV and SV. Defaults to False.
             genes_to_observe (list, optional): Genes list that should be considered. Defaults to [].
-            variant_type_to_observe (list, optional): Variant type that shoud be considered. Defaults to [].
+            variant_type_to_observe (list, optional): Variant type that shoud be considered. Defaults to ['MUTATIONS','CNV','SV'].
 
         Returns:
             Union[float,pd.Series]: A pd.Series when groupby options passed, a float value when not.
         """
 
-        crosstab = self.crosstab[self.crosstab['track_type'] != 'CLINICAL']
+        crosstab = self.crosstab.reindex(index=variant_type_to_observe,
+                                         level=0)
 
         if genes_to_observe:
-            crosstab = crosstab.reindex(index=genes_to_observe)
-
-        if variant_type_to_observe:
-            crosstab = crosstab[crosstab['track_type'].isin(
-                variant_type_to_observe)]
+            crosstab = crosstab.reindex(index=genes_to_observe, level=1)
 
         test_posi_rate = None
         # skip the last track_type column
         if groupby:
-            test_posi_rate = crosstab.iloc[:, :-1].groupby(
-                self.crosstab.loc[groupby][:-1],
+            test_posi_rate = crosstab.groupby(
+                self.crosstab.loc['CLINICAL', groupby],
                 axis=1).apply(self._crosstab_to_positive_rate)
         elif groupby_genes:
-            test_posi_rate = crosstab.iloc[:, :-1].groupby(level=0).apply(
+            test_posi_rate = crosstab.groupby(level=1).apply(
                 self._crosstab_to_positive_rate)
         elif groupby_variant_type:
-            test_posi_rate = crosstab.iloc[:, :-1].groupby(
-                crosstab['track_type']).apply(self._crosstab_to_positive_rate)
+            test_posi_rate = crosstab.groupby(level=0).apply(
+                self._crosstab_to_positive_rate)
         else:
-            test_posi_rate = self._crosstab_to_positive_rate(
-                crosstab.iloc[:, :-1])
+            test_posi_rate = self._crosstab_to_positive_rate(crosstab)
 
         return test_posi_rate
 
@@ -662,7 +746,7 @@ class CDx_Data():
             Union[int, pd.Series]: Sample size. a pd.Series when groupby options passed.
         """
         if groupby:
-            return self.crosstab.iloc[:, :-1].groupby(
-                self.crosstab.iloc[:, :-1].loc[groupby], axis=1).size()
+            return self.crosstab.groupby(
+                self.crosstab.loc['CLINICAL',groupby], axis=1).size()
         else:
-            return len(self.crosstab.columns) - 1
+            return len(self.crosstab.columns)
