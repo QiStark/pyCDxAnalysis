@@ -4,6 +4,7 @@ import numpy as np
 import re
 import os
 from tableone import TableOne
+from collections import defaultdict
 
 import pypeta
 from pypeta import Peta
@@ -169,6 +170,7 @@ class CDx_Data():
         Returns:
             pd.DataFrame: CDx_Data.
         """
+        # 这里cli表中不允许存在相同的样本编号。会造成crosstab的列中存在重复，引入Series的boolen值无法处理的问题
         if self.cli is None:
             return pd.DataFrame([])
 
@@ -370,11 +372,11 @@ class CDx_Data():
 
             # fuzzy the input ids
             target_ids = []
-            fuzzy_to_origin = {}
+            fuzzy_to_origin = defaultdict(list)
             transform = lambda x: self._fuzzy_id(regex, x)
             for sample_id in sample_ids:
                 fuzzy_sample_id = self._fuzzy_id(regex, sample_id)
-                fuzzy_to_origin[fuzzy_sample_id] = sample_id
+                fuzzy_to_origin[fuzzy_sample_id].append(sample_id)
                 target_ids.append(fuzzy_sample_id)
         else:
             target_ids = sample_ids
@@ -382,7 +384,7 @@ class CDx_Data():
 
         # match
         sample_id_bool = self.cli['sampleId'].map(transform).isin(target_ids)
-        if study_ids:
+        if len(study_ids):
             if len(study_ids) != len(sample_ids):
                 raise ListsUnEqualLengthError('Error')
 
@@ -398,9 +400,10 @@ class CDx_Data():
         cli_df = self.cli[sample_id_bool].copy()
 
         # add a column of query ids for fuzzy match
+        # multi hit represent as a string
         if fuzzy:
             cli_df['queryId'] = cli_df['sampleId'].map(
-                lambda x: fuzzy_to_origin[transform(x)])
+                lambda x: ','.join(fuzzy_to_origin[transform(x)]))
 
         if not self.mut is None:
             mut_df = self.mut[self.mut['Tumor_Sample_Barcode'].isin(
@@ -747,6 +750,6 @@ class CDx_Data():
         """
         if groupby:
             return self.crosstab.groupby(
-                self.crosstab.loc['CLINICAL',groupby], axis=1).size()
+                self.crosstab.loc['CLINICAL', groupby], axis=1).size()
         else:
             return len(self.crosstab.columns)
