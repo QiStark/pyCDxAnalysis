@@ -137,7 +137,7 @@ class CDx_Data():
             self.cnv.to_csv(os.path.join(path, 'cnv_info.txt'),
                             index=None,
                             sep='\t')
-        if not self.sv is None:
+        if not self.sv is None::
             self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
                            index=None,
                            sep='\t')
@@ -180,79 +180,33 @@ class CDx_Data():
 
         sub_dfs = []
         # cli
-        cli = self.cli.copy().set_index('sampleId').T
-        cli['track_type'] = 'CLINICAL'
-        sub_dfs.append(cli)
+        cli_crosstab = self.cli.copy().set_index('sampleId').T
+        cli_crosstab['track_type'] = 'CLINICAL'
+        sub_dfs.append(cli_crosstab)
 
         # mut. represent by cHgvs, joined by '|' for mulitple hit
         if not self.mut is None:
-            genes = self.mut['Hugo_Symbol'].drop_duplicates()
+            mut_undup=self.mut.drop_duplicates(subset=['Hugo_Symbol','Tumor_Sample_Barcode'])
+            mut_crosstab= mut_undup.pivot('Hugo_Symbol','Tumor_Sample_Barcode','HGVSp_Short')
+            mut_crosstab['track_type'] = 'MUTATIONS'
 
-            mut = pd.DataFrame(np.zeros((len(genes), len(cli.columns))),
-                               index=genes,
-                               columns=cli.columns)
-            mut = mut.replace({0: np.nan})
-            mut['track_type'] = 'MUTATIONS'
-
-            # 3 columns, Hugo_symbol,Tumor_Sample_Barcode,cHgvs.
-            for _, row in self.mut.iterrows():
-                try:
-                    if pd.isnull(mut.loc[row['Hugo_Symbol'],
-                                         row['Tumor_Sample_Barcode']]):
-                        mut.loc[row['Hugo_Symbol'], row[
-                            'Tumor_Sample_Barcode']] = row['HGVSp_Short']
-                    else:
-                        mut.loc[row['Hugo_Symbol'], row[
-                            'Tumor_Sample_Barcode']] += f'|{row["HGVSp_Short"]}'
-                except:
-                    raise SampleIdError(row['Tumor_Sample_Barcode'],
-                                        'not exists in clinical table')
-
-            sub_dfs.append(mut)
+            sub_dfs.append(mut_crosstab)
 
         # cnv. represent by gain or loss. at first use the virtual column "status"
         if not self.cnv is None:
-            genes = self.cnv['Hugo_Symbol'].drop_duplicates()
-            cnv = pd.DataFrame(np.zeros((len(genes), len(cli.columns))),
-                               index=genes,
-                               columns=cli.columns)
-            cnv = cnv.replace({0: np.nan})
-            cnv['track_type'] = 'CNV'
-
-            for _, row in self.cnv.iterrows():
-                try:
-                    cnv.loc[row['Hugo_Symbol'],
-                            row['Tumor_Sample_Barcode']] = row['status']
-                except:
-                    raise SampleIdError(row['Tumor_Sample_Barcode'],
-                                        'not exists in clinical table')
-
-            sub_dfs.append(cnv)
+            cnv_undup=self.cnv.drop_duplicates(subset=['Hugo_Symbol','Tumor_Sample_Barcode'])
+            cnv_crosstab=cnv_undup.pivot('Hugo_Symbol','Tumor_Sample_Barcode','status')
+            cnv_crosstab['track_type'] = 'CNV'
+            
+            sub_dfs.append(cnv_crosstab)
 
         # sv. represent by gene1 and gene2 combination.
         if not self.sv is None:
-            genes = self.sv['gene1'].drop_duplicates()
-            sv = pd.DataFrame(np.zeros((len(genes), len(cli.columns))),
-                              index=genes,
-                              columns=cli.columns)
-            sv = sv.replace({0: np.nan})
-            sv['track_type'] = 'FUSION'
+            sv_undup=self.sv.cnv.drop_duplicates(subset=['gene1','Tumor_Sample_Barcode'])
+            sv_crosstab=sv_undup.pivot('gene1','Tumor_Sample_Barcode','gene2')            
+            sv_crosstab['track_type'] = 'FUSION'           
 
-            for _, row in self.sv.iterrows():
-                fusion_symbol = f'{row["gene1"]}-{row["gene2"]}'
-                try:
-                    if pd.isnull(
-                            sv.loc[row['gene1'], row['Tumor_Sample_Barcode']]):
-                        sv.loc[row['gene1'],
-                               row['Tumor_Sample_Barcode']] = fusion_symbol
-                    else:
-                        sv.loc[row['gene1'], row[
-                            'Tumor_Sample_Barcode']] = f'|{fusion_symbol}'
-                except:
-                    raise SampleIdError(row['Tumor_Sample_Barcode'],
-                                        'not exists in clinical table')
-
-            sub_dfs.append(sv)
+            sub_dfs.append(sv_crosstab)
 
         # pandas does not support reindex with duplicated index, so turn into multiIndex
         crosstab = pd.concat(sub_dfs)
