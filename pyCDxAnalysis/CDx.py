@@ -125,18 +125,22 @@ class CDx_Data():
         Args:
             path (str, optional): Path to write files. Defaults to './'.
         """
-        self.cli.to_csv(os.path.join(path, 'sample_info.txt'),
-                        index=None,
-                        sep='\t')
-        self.mut.to_csv(os.path.join(path, 'mut_info.txt'),
-                        index=None,
-                        sep='\t')
-        self.cnv.to_csv(os.path.join(path, 'cnv_info.txt'),
-                        index=None,
-                        sep='\t')
-        self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
-                       index=None,
-                       sep='\t')
+        if not self.cli is None:
+            self.cli.to_csv(os.path.join(path, 'sample_info.txt'),
+                            index=None,
+                            sep='\t')
+        if not self.mut is None:
+            self.mut.to_csv(os.path.join(path, 'mut_info.txt'),
+                            index=None,
+                            sep='\t')
+        if not self.cnv is None:
+            self.cnv.to_csv(os.path.join(path, 'cnv_info.txt'),
+                            index=None,
+                            sep='\t')
+        if not self.sv is None:
+            self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
+                           index=None,
+                           sep='\t')
 
     def _set_cli(self):
         """Set the cli attribute, generate a void DataFrame when it is not specified. 
