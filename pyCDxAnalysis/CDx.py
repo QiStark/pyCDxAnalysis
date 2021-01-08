@@ -5,6 +5,7 @@ import re
 import os
 from tableone import TableOne
 from collections import defaultdict
+from io import StringIO
 
 import pypeta
 from pypeta import Peta
@@ -83,7 +84,10 @@ class CDx_Data():
         peta = Peta(token=token, host='https://peta.bgi.com/api')
         peta.set_data_restriction_from_json_string(json_str)
 
-        self.cli = peta.fetch_clinical_data()
+        # peta.fetch_clinical_data() does`not process dtype inference correctly, do manully.
+        #self.cli = peta.fetch_clinical_data()
+        self.cli = pd.read_csv(
+            StringIO(peta.fetch_clinical_data().to_csv(None, index=False)))
         self.mut = peta.fetch_mutation_data()
         self.cnv = peta.fetch_cnv_data()
         self.sv = peta.fetch_sv_data()
@@ -137,7 +141,7 @@ class CDx_Data():
             self.cnv.to_csv(os.path.join(path, 'cnv_info.txt'),
                             index=None,
                             sep='\t')
-        if not self.sv is None::
+        if not self.sv is None:
             self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
                            index=None,
                            sep='\t')
@@ -186,25 +190,32 @@ class CDx_Data():
 
         # mut. represent by cHgvs, joined by '|' for mulitple hit
         if not self.mut is None:
-            mut_undup=self.mut.drop_duplicates(subset=['Hugo_Symbol','Tumor_Sample_Barcode'])
-            mut_crosstab= mut_undup.pivot('Hugo_Symbol','Tumor_Sample_Barcode','HGVSp_Short')
+            mut_undup = self.mut.drop_duplicates(
+                subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
+            mut_crosstab = mut_undup.pivot('Hugo_Symbol',
+                                           'Tumor_Sample_Barcode',
+                                           'HGVSp_Short')
             mut_crosstab['track_type'] = 'MUTATIONS'
 
             sub_dfs.append(mut_crosstab)
 
         # cnv. represent by gain or loss. at first use the virtual column "status"
         if not self.cnv is None:
-            cnv_undup=self.cnv.drop_duplicates(subset=['Hugo_Symbol','Tumor_Sample_Barcode'])
-            cnv_crosstab=cnv_undup.pivot('Hugo_Symbol','Tumor_Sample_Barcode','status')
+            cnv_undup = self.cnv.drop_duplicates(
+                subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
+            cnv_crosstab = cnv_undup.pivot('Hugo_Symbol',
+                                           'Tumor_Sample_Barcode', 'status')
             cnv_crosstab['track_type'] = 'CNV'
-            
+
             sub_dfs.append(cnv_crosstab)
 
         # sv. represent by gene1 and gene2 combination.
         if not self.sv is None:
-            sv_undup=self.sv.cnv.drop_duplicates(subset=['gene1','Tumor_Sample_Barcode'])
-            sv_crosstab=sv_undup.pivot('gene1','Tumor_Sample_Barcode','gene2')            
-            sv_crosstab['track_type'] = 'FUSION'           
+            sv_undup = self.sv.drop_duplicates(
+                subset=['gene1', 'Tumor_Sample_Barcode'])
+            sv_crosstab = sv_undup.pivot('gene1', 'Tumor_Sample_Barcode',
+                                         'gene2')
+            sv_crosstab['track_type'] = 'FUSION'
 
             sub_dfs.append(sv_crosstab)
 
@@ -342,6 +353,12 @@ class CDx_Data():
 
         # match
         sample_id_bool = self.cli['sampleId'].map(transform).isin(target_ids)
+
+        # no match, return immediately
+        if not sample_id_bool.any():
+            return CDx_Data()
+
+        # with study ids
         if len(study_ids):
             if len(study_ids) != len(sample_ids):
                 raise ListsUnEqualLengthError('Error')
