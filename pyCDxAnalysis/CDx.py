@@ -509,13 +509,26 @@ class CDx_Data():
             CDx: CDx object of selected samples.
         """
         variant_crosstab = self.crosstab.reindex(index=variant_type, level=0)
+        variant_crosstab = variant_crosstab.reindex(index=genes, level=1)
+
+        # Certain variant_types or genes get a empty table. all.() bug
+        if len(variant_crosstab) == 0:
+            return CDx_Data()
+
+        gene_num = len(
+            pd.DataFrame(list(
+                variant_crosstab.index)).iloc[:, 1].drop_duplicates())
 
         if how == 'or':
-            is_posi_sample = variant_crosstab.reindex(
-                index=genes, level=1).apply(lambda x: any(pd.notnull(x)))
+            is_posi_sample = variant_crosstab.apply(
+                lambda x: any(pd.notnull(x)))
         elif how == 'and':
-            is_posi_sample = variant_crosstab.reindex(
-                index=genes, level=1).apply(lambda x: all(pd.notnull(x)))
+            # reindex multiindex bug
+            if len(genes) != gene_num:
+                return CDx_Data()
+
+            is_posi_sample = variant_crosstab.apply(
+                lambda x: all(pd.notnull(x)))
         else:
             raise GenesRelationError(
                 f'value of "how" must be "or" or "and", here comes "{how}"')
