@@ -493,7 +493,7 @@ class CDx_Data():
     def select_samples_by_mutate_genes(
             self,
             genes: list,
-            variant_type: list = ['MUTATIONS', 'CNV', 'SV'],
+            variant_type: list = ['MUTATIONS', 'CNV', 'FUSION'],
             how='or'):
         """Select sample via positve variant genes.
 
@@ -652,7 +652,7 @@ class CDx_Data():
                            groupby_genes=False,
                            groupby_variant_type=False,
                            genes_to_observe=[],
-                           variant_type_to_observe=['MUTATIONS', 'CNV', 'SV']):
+                           variant_type_to_observe=['MUTATIONS', 'CNV', 'FUSION']):
         """Calculate the positvie rate for CDx object in user defined way
 
         Args:
