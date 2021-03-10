@@ -209,10 +209,15 @@ class CDx_Data():
 
             sub_dfs.append(cnv_crosstab)
 
-        # sv. represent by gene1 and gene2 combination.
+        # sv. represent by gene1 and gene2 combination. explode one record into 2 lines.
         if not self.sv is None:
-            sv_undup = self.sv.drop_duplicates(
-                subset=['gene1', 'Tumor_Sample_Barcode'])
+            sv_undup = pd.concat([
+                self.sv,
+                self.sv.rename(columns={
+                    'gene1': 'gene2',
+                    'gene2': 'gene1'
+                })
+            ]).drop_duplicates(subset=['gene1', 'Tumor_Sample_Barcode'])
             sv_crosstab = sv_undup.pivot('gene1', 'Tumor_Sample_Barcode',
                                          'gene2')
             sv_crosstab['track_type'] = 'FUSION'
@@ -647,12 +652,13 @@ class CDx_Data():
         pass
 
     # 画图的程序是否内置？
-    def test_positive_rate(self,
-                           groupby='',
-                           groupby_genes=False,
-                           groupby_variant_type=False,
-                           genes_to_observe=[],
-                           variant_type_to_observe=['MUTATIONS', 'CNV', 'FUSION']):
+    def test_positive_rate(
+            self,
+            groupby='',
+            groupby_genes=False,
+            groupby_variant_type=False,
+            genes_to_observe=[],
+            variant_type_to_observe=['MUTATIONS', 'CNV', 'FUSION']):
         """Calculate the positvie rate for CDx object in user defined way
 
         Args:
