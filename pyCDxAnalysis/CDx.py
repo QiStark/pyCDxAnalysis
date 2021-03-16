@@ -747,3 +747,30 @@ class CDx_Data():
                 self.crosstab.loc['CLINICAL', groupby], axis=1).size()
         else:
             return len(self.crosstab.columns)
+
+    def gene_rearrangement_partner_distribute(self, genes=[]) -> pd.DataFrame:
+        """Calculate the rearrangement partner distribution for input/all genes based on fusion table
+
+        Args:
+            genes (list, optional): Queried genes. Defaults to [].
+
+        Returns:
+            pd.DataFrame: Rearrangement partner distribution.
+        """
+        sv_df = pd.concat([
+            self.sv,
+            self.sv.rename(columns={
+                'gene1': 'gene2',
+                'gene2': 'gene1'
+            })
+        ])
+
+        if genes:
+            sv_df = sv_df[sv_df['gene1'].isin(genes)]
+
+        return sv_df.groupby('gene1').apply(lambda x: pd.DataFrame(
+            {
+                'Frequency': x['gene2'].value_counts() / len(x),
+                'Number': x['gene2'].value_counts(),
+                'Total': len(x)
+            }))
