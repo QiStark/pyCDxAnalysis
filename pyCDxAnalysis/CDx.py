@@ -179,7 +179,7 @@ class CDx_Data():
             pd.DataFrame: CDx_Data.
         """
         # 这里cli表中不允许存在相同的样本编号。会造成crosstab的列中存在重复，引入Series的boolen值无法处理的问题
-        if self.cli is None:
+        if (self.cli is None) or (len(self.cli) == 0):
             return pd.DataFrame([])
 
         sub_dfs = []
@@ -189,7 +189,7 @@ class CDx_Data():
         sub_dfs.append(cli_crosstab)
 
         # mut. represent by cHgvs, joined by '|' for mulitple hit
-        if not self.mut is None:
+        if (not self.mut is None) and (len(self.mut) != 0):
             mut_undup = self.mut.drop_duplicates(
                 subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
             mut_crosstab = mut_undup.pivot('Hugo_Symbol',
@@ -199,18 +199,18 @@ class CDx_Data():
 
             sub_dfs.append(mut_crosstab)
 
-        # cnv. represent by gain or loss. at first use the virtual column "status"
-        if not self.cnv is None:
+        # cnv. represent by gain or loss. at first use the virtual column "copy_Num"
+        if (not self.cnv is None) and (len(self.cnv) != 0):
             cnv_undup = self.cnv.drop_duplicates(
                 subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
             cnv_crosstab = cnv_undup.pivot('Hugo_Symbol',
-                                           'Tumor_Sample_Barcode', 'status')
+                                           'Tumor_Sample_Barcode', 'copy_Num')
             cnv_crosstab['track_type'] = 'CNV'
 
             sub_dfs.append(cnv_crosstab)
 
         # sv. represent by gene1 and gene2 combination. explode one record into 2 lines.
-        if not self.sv is None:
+        if (not self.sv is None) and (len(self.sv) != 0):
             sv_undup = pd.concat([
                 self.sv,
                 self.sv.rename(columns={
