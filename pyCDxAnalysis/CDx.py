@@ -48,6 +48,11 @@ class ListsUnEqualLengthError(RuntimeError):
         self.message = message
 
 
+class DatetimeFormatError(RuntimeError):
+    def __init__(self, message: str):
+        self.message = message
+
+
 class CDx_Data():
     """[summary]
     """
@@ -71,8 +76,11 @@ class CDx_Data():
 
         if not cli_df is None:
             self.cli = cli_df
+            self.cli=self._infer_datetime_columns()
         else:
             self._set_cli()
+
+        
         self.crosstab = self.get_crosstab()
 
     def from_PETA(self, token: str, json_str: str):
@@ -93,6 +101,7 @@ class CDx_Data():
         self.cnv = peta.fetch_cnv_data()
         self.sv = peta.fetch_sv_data()
 
+        self.cli=self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
 
     def from_file(self,
@@ -122,6 +131,7 @@ class CDx_Data():
         else:
             self._set_cli()
 
+        self.cli=self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
 
     def write_files(self, path: str = './'):
@@ -169,6 +179,23 @@ class CDx_Data():
             }).drop_duplicates()
         else:
             self.cli = None
+        
+    def _infer_datetime_columns(self)->pd.DataFrame:
+        """To infer the datetime_columns and astype to datetime64 format
+
+        Returns:
+            pd.DataFrame: CDx.cli dataframe
+        """
+        cli=self.cli
+        for column in cli.columns:            
+            if column.endswith('DATE'):
+                try:
+                    cli[column]=pd.to_datetime(cli[column])
+                except Exception as e:
+                    raise DatetimeFormatError(f'{column} column end with "DATE" can not be transformed to datetime format')
+
+        return cli
+
 
     def get_crosstab(self) -> pd.DataFrame:
         """Generate a Gene vs. Sample_id cross table.
