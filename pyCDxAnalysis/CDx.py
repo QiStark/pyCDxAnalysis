@@ -9,6 +9,7 @@ from io import StringIO
 
 import pypeta
 from pypeta import Peta
+import numba
 
 
 class SampleIdError(RuntimeError):
@@ -190,8 +191,9 @@ class CDx_Data():
 
         # mut. represent by cHgvs, joined by '|' for mulitple hit
         if (not self.mut is None) and (len(self.mut) != 0):
-            mut_undup = self.mut.drop_duplicates(
-                subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
+            mut_undup = self.mut[['Hugo_Symbol', 'Tumor_Sample_Barcode', 'HGVSp_Short'
+                    ]].groupby(['Hugo_Symbol', 'Tumor_Sample_Barcode'
+                        ])['HGVSp_Short'].apply(lambda x: '|'.join(x)).reset_index()
             mut_crosstab = mut_undup.pivot('Hugo_Symbol',
                                            'Tumor_Sample_Barcode',
                                            'HGVSp_Short')
@@ -201,10 +203,11 @@ class CDx_Data():
 
         # cnv. represent by gain or loss. at first use the virtual column "copy_Num"
         if (not self.cnv is None) and (len(self.cnv) != 0):
-            cnv_undup = self.cnv.drop_duplicates(
-                subset=['Hugo_Symbol', 'Tumor_Sample_Barcode'])
+            cnv_undup = self.cnv[['Hugo_Symbol','Tumor_Sample_Barcode', 'status'
+                ]].groupby(['Hugo_Symbol', 'Tumor_Sample_Barcode'
+                    ])['status'].apply(lambda x: '|'.join(x)).reset_index()
             cnv_crosstab = cnv_undup.pivot('Hugo_Symbol',
-                                           'Tumor_Sample_Barcode', 'copy_Num')
+                                           'Tumor_Sample_Barcode', 'status')
             cnv_crosstab['track_type'] = 'CNV'
 
             sub_dfs.append(cnv_crosstab)
@@ -217,7 +220,9 @@ class CDx_Data():
                     'gene1': 'gene2',
                     'gene2': 'gene1'
                 })
-            ]).drop_duplicates(subset=['gene1', 'Tumor_Sample_Barcode'])
+            ])[['gene1', 'Tumor_Sample_Barcode', 'gene2'
+                ]].groupby(['gene1', 'Tumor_Sample_Barcode'
+                    ])['gene2'].apply(lambda x: '|'.join(x)).reset_index()
             sv_crosstab = sv_undup.pivot('gene1', 'Tumor_Sample_Barcode',
                                          'gene2')
             sv_crosstab['track_type'] = 'FUSION'
@@ -493,6 +498,9 @@ class CDx_Data():
         cli_df = self._selector(self.cli, kwargs)
         return self.select_by_sample_ids(cli_df['sampleId'])
 
+    #def select_samples_by_date_attributes(self,column_name:str='SAMPLE_RECEIVED_DATE',from:str='',to:str='',days:str='',exact:str=''):
+    #    
+    #    pass
     # 对阳性样本进行选取。基因组合，且或关系，chgvs和ghgvs，基因系列如MMR、HR等
     # 基因组合可以做为入参数组来传入
     def select_samples_by_mutate_genes(
@@ -685,15 +693,16 @@ class CDx_Data():
                 self.crosstab.loc['CLINICAL', groupby],
                 axis=1).apply(self._crosstab_to_positive_rate)
         elif groupby_genes:
-            test_posi_rate = crosstab.groupby(level=1).apply(
+            test_posi_rate = crosstab.groupby(level=1,sort=False).apply(
                 self._crosstab_to_positive_rate)
         elif groupby_variant_type:
-            test_posi_rate = crosstab.groupby(level=0).apply(
+            test_posi_rate = crosstab.groupby(level=0,sort=False).apply(
                 self._crosstab_to_positive_rate)
         else:
             test_posi_rate = self._crosstab_to_positive_rate(crosstab)
 
         return test_posi_rate
+
 
     def _crosstab_to_positive_rate(self, df: pd.DataFrame):
         """Calculate a crosstab to generate a positive rate value for notnull cell
@@ -707,6 +716,7 @@ class CDx_Data():
         posi_rate = self._positive_rate(df.apply(lambda x: any(pd.notnull(x))),
                                         [True])[-1]
         return posi_rate
+
 
     def _positive_rate(self, values: list,
                        positive_tags: list) -> Tuple[int, int, float]:
