@@ -525,9 +525,31 @@ class CDx_Data():
         cli_df = self._selector(self.cli, kwargs)
         return self.select_by_sample_ids(cli_df['sampleId'])
 
-    #def select_samples_by_date_attributes(self,column_name:str='SAMPLE_RECEIVED_DATE',from:str='',to:str='',days:str='',exact:str=''):
-    #    
-    #    pass
+
+    def select_samples_by_date_attributes(self,column_name:str='SAMPLE_RECEIVED_DATE',
+        start='',end:str='',
+        days:int=0,period:str='',):
+        """Select samples using a datetime attribute in the cli dataframe
+
+        Args:
+            column_name (str, optional): Column used in the cli dataframe. Defaults to 'SAMPLE_RECEIVED_DATE'.
+            from (str, optional): Time start point. Defaults to ''.
+            to (str, optional): Time end point. Defaults to ''.
+            days (int, optional): Days lasts. Defaults to ''.
+            exact (str, optional): Exact range,eg '202005' for May in 2020 or '2021' for the whole year. Defaults to ''.
+        """
+        date_ser=self.cli.set_index(column_name)['sampleId']
+        if period:
+            cdx=self.select_by_sample_ids(date_ser[period])
+        elif start and end:
+            cdx=self.select_by_sample_ids(date_ser[start:end])
+        elif start and days:
+            cdx=self.select_by_sample_ids(date_ser[start:(pd.to_datetime(start)+pd.to_timedelta(days,'D')).strftime("%Y-%m-%d")])
+        elif end and days:
+            cdx=self.select_by_sample_ids(date_ser[(pd.to_datetime(end) - pd.to_timedelta(days,'D')).strftime("%Y-%m-%d"):end])
+        
+        return cdx
+
     # 对阳性样本进行选取。基因组合，且或关系，chgvs和ghgvs，基因系列如MMR、HR等
     # 基因组合可以做为入参数组来传入
     def select_samples_by_mutate_genes(
