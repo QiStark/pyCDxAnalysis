@@ -107,6 +107,19 @@ class CDx_Data():
         self.cnv = peta.fetch_cnv_data()
         self.sv = peta.fetch_sv_data()
 
+        # dedup for the same sampleId in different studyIds, discard the duplicated ones from all tables
+        cli_original=self.cli
+        self.cli=self.cli.drop_duplicates(subset=['sampleId','studyId'])
+        if(len(self.cli)<len(cli_original)):
+            print('Duplicated sampleId exists, drop duplicates and go on')
+
+        undup_tuple=[(x,y) for x,y in zip(self.cli.sampleId,self.cli.studyId)]
+
+        self.sv=self.sv[self.sv.apply(lambda x: (x['Tumor_Sample_Barcode'],x['studyId']) in undup_tuple,axis=1)]
+        self.cnv=self.cnv[self.cnv.apply(lambda x: (x['Tumor_Sample_Barcode'],x['studyId']) in undup_tuple,axis=1)]
+        self.mut=self.mut[self.mut.apply(lambda x: (x['Tumor_Sample_Barcode'],x['studyId']) in undup_tuple,axis=1)]
+
+        # time series
         self.cli = self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
 
