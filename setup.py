@@ -33,7 +33,7 @@ setup(author='JaylanLiu',
       long_description_content_type='text/markdown',
       url='https://github.com/JaylanLiu/pyCDxAnalysis',
       packages=find_packages(),
-      install_requires=['pandas>1.0', 'numpy', 'tableone', 'pyoncoprint'],
+      install_requires=['pandas>1.0', 'numpy', 'tableone', 'pyoncoprint','pypeta>=0.6.8'],
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Developers',

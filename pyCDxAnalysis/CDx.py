@@ -1,3 +1,4 @@
+import json
 from typing import Tuple, Union
 import pandas as pd
 import numpy as np
@@ -9,7 +10,7 @@ from io import StringIO
 
 import pypeta
 from pypeta import Peta
-import numba
+from pypeta import filter_description
 
 
 class SampleIdError(RuntimeError):
@@ -76,12 +77,17 @@ class CDx_Data():
 
         if not cli_df is None:
             self.cli = cli_df
-            self.cli=self._infer_datetime_columns()
+            self.cli = self._infer_datetime_columns()
         else:
             self._set_cli()
 
-        
         self.crosstab = self.get_crosstab()
+
+    def __len__(self):
+        return len(self.cli)
+
+    def __getitem__(self, n):
+        return self.select_by_sample_ids([self.cli.sampleId.iloc[n]])
 
     def from_PETA(self, token: str, json_str: str):
         """Retrieve CDx data from BGI-PETA database. 
@@ -101,8 +107,10 @@ class CDx_Data():
         self.cnv = peta.fetch_cnv_data()
         self.sv = peta.fetch_sv_data()
 
-        self.cli=self._infer_datetime_columns()
+        self.cli = self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
+
+        return filter_description(json_str)
 
     def from_file(self,
                   mut_f: str = None,
@@ -131,7 +139,7 @@ class CDx_Data():
         else:
             self._set_cli()
 
-        self.cli=self._infer_datetime_columns()
+        self.cli = self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
 
     def write_files(self, path: str = './'):
@@ -179,23 +187,24 @@ class CDx_Data():
             }).drop_duplicates()
         else:
             self.cli = None
-        
-    def _infer_datetime_columns(self)->pd.DataFrame:
+
+    def _infer_datetime_columns(self) -> pd.DataFrame:
         """To infer the datetime_columns and astype to datetime64 format
 
         Returns:
             pd.DataFrame: CDx.cli dataframe
         """
-        cli=self.cli
-        for column in cli.columns:            
+        cli = self.cli
+        for column in cli.columns:
             if column.endswith('DATE'):
                 try:
-                    cli[column]=pd.to_datetime(cli[column])
+                    cli[column] = pd.to_datetime(cli[column])
                 except Exception as e:
-                    raise DatetimeFormatError(f'{column} column end with "DATE" can not be transformed to datetime format')
+                    raise DatetimeFormatError(
+                        f'{column} column end with "DATE" can not be transformed to datetime format'
+                    )
 
         return cli
-
 
     def get_crosstab(self) -> pd.DataFrame:
         """Generate a Gene vs. Sample_id cross table.
@@ -218,9 +227,11 @@ class CDx_Data():
 
         # mut. represent by cHgvs, joined by '|' for mulitple hit
         if (not self.mut is None) and (len(self.mut) != 0):
-            mut_undup = self.mut[['Hugo_Symbol', 'Tumor_Sample_Barcode', 'HGVSp_Short'
-                    ]].groupby(['Hugo_Symbol', 'Tumor_Sample_Barcode'
-                        ])['HGVSp_Short'].apply(lambda x: '|'.join(x)).reset_index()
+            mut_undup = self.mut[[
+                'Hugo_Symbol', 'Tumor_Sample_Barcode', 'HGVSp_Short'
+            ]].groupby([
+                'Hugo_Symbol', 'Tumor_Sample_Barcode'
+            ])['HGVSp_Short'].apply(lambda x: '|'.join(x)).reset_index()
             mut_crosstab = mut_undup.pivot('Hugo_Symbol',
                                            'Tumor_Sample_Barcode',
                                            'HGVSp_Short')
@@ -230,9 +241,11 @@ class CDx_Data():
 
         # cnv. represent by gain or loss. at first use the virtual column "copy_Num"
         if (not self.cnv is None) and (len(self.cnv) != 0):
-            cnv_undup = self.cnv[['Hugo_Symbol','Tumor_Sample_Barcode', 'status'
-                ]].groupby(['Hugo_Symbol', 'Tumor_Sample_Barcode'
-                    ])['status'].apply(lambda x: '|'.join(x)).reset_index()
+            cnv_undup = self.cnv[[
+                'Hugo_Symbol', 'Tumor_Sample_Barcode', 'status'
+            ]].groupby([
+                'Hugo_Symbol', 'Tumor_Sample_Barcode'
+            ])['status'].apply(lambda x: '|'.join(x)).reset_index()
             cnv_crosstab = cnv_undup.pivot('Hugo_Symbol',
                                            'Tumor_Sample_Barcode', 'status')
             cnv_crosstab['track_type'] = 'CNV'
@@ -247,9 +260,9 @@ class CDx_Data():
                     'gene1': 'gene2',
                     'gene2': 'gene1'
                 })
-            ])[['gene1', 'Tumor_Sample_Barcode', 'gene2'
-                ]].groupby(['gene1', 'Tumor_Sample_Barcode'
-                    ])['gene2'].apply(lambda x: '|'.join(x)).reset_index()
+            ])[['gene1', 'Tumor_Sample_Barcode', 'gene2']].groupby([
+                'gene1', 'Tumor_Sample_Barcode'
+            ])['gene2'].apply(lambda x: '|'.join(x)).reset_index()
             sv_crosstab = sv_undup.pivot('gene1', 'Tumor_Sample_Barcode',
                                          'gene2')
             sv_crosstab['track_type'] = 'FUSION'
@@ -525,10 +538,14 @@ class CDx_Data():
         cli_df = self._selector(self.cli, kwargs)
         return self.select_by_sample_ids(cli_df['sampleId'])
 
-
-    def select_samples_by_date_attributes(self,column_name:str='SAMPLE_RECEIVED_DATE',
-        start='',end:str='',
-        days:int=0,period:str='',):
+    def select_samples_by_date_attributes(
+        self,
+        column_name: str = 'SAMPLE_RECEIVED_DATE',
+        start='',
+        end: str = '',
+        days: int = 0,
+        period: str = '',
+    ):
         """Select samples using a datetime attribute in the cli dataframe
 
         Args:
@@ -538,16 +555,20 @@ class CDx_Data():
             days (int, optional): Days lasts. Defaults to ''.
             exact (str, optional): Exact range,eg '202005' for May in 2020 or '2021' for the whole year. Defaults to ''.
         """
-        date_ser=self.cli.set_index(column_name)['sampleId']
+        date_ser = self.cli.set_index(column_name)['sampleId']
         if period:
-            cdx=self.select_by_sample_ids(date_ser[period])
+            cdx = self.select_by_sample_ids(date_ser[period])
         elif start and end:
-            cdx=self.select_by_sample_ids(date_ser[start:end])
+            cdx = self.select_by_sample_ids(date_ser[start:end])
         elif start and days:
-            cdx=self.select_by_sample_ids(date_ser[start:(pd.to_datetime(start)+pd.to_timedelta(days,'D')).strftime("%Y-%m-%d")])
+            cdx = self.select_by_sample_ids(date_ser[start:(
+                pd.to_datetime(start) +
+                pd.to_timedelta(days, 'D')).strftime("%Y-%m-%d")])
         elif end and days:
-            cdx=self.select_by_sample_ids(date_ser[(pd.to_datetime(end) - pd.to_timedelta(days,'D')).strftime("%Y-%m-%d"):end])
-        
+            cdx = self.select_by_sample_ids(date_ser[(
+                pd.to_datetime(end) -
+                pd.to_timedelta(days, 'D')).strftime("%Y-%m-%d"):end])
+
         return cdx
 
     # 对阳性样本进行选取。基因组合，且或关系，chgvs和ghgvs，基因系列如MMR、HR等
@@ -742,16 +763,15 @@ class CDx_Data():
                 self.crosstab.loc['CLINICAL', groupby],
                 axis=1).apply(self._crosstab_to_positive_rate)
         elif groupby_genes:
-            test_posi_rate = crosstab.groupby(level=1,sort=False).apply(
+            test_posi_rate = crosstab.groupby(level=1, sort=False).apply(
                 self._crosstab_to_positive_rate)
         elif groupby_variant_type:
-            test_posi_rate = crosstab.groupby(level=0,sort=False).apply(
+            test_posi_rate = crosstab.groupby(level=0, sort=False).apply(
                 self._crosstab_to_positive_rate)
         else:
             test_posi_rate = self._crosstab_to_positive_rate(crosstab)
 
         return test_posi_rate
-
 
     def _crosstab_to_positive_rate(self, df: pd.DataFrame):
         """Calculate a crosstab to generate a positive rate value for notnull cell
@@ -765,7 +785,6 @@ class CDx_Data():
         posi_rate = self._positive_rate(df.apply(lambda x: any(pd.notnull(x))),
                                         [True])[-1]
         return posi_rate
-
 
     def _positive_rate(self, values: list,
                        positive_tags: list) -> Tuple[int, int, float]:
@@ -802,8 +821,9 @@ class CDx_Data():
             Union[int, pd.Series]: Sample size. a pd.Series when groupby options passed.
         """
         if groupby:
-            return self.crosstab.groupby(
-                self.crosstab.loc['CLINICAL', groupby], axis=1).size()
+            return self.crosstab.groupby(self.crosstab.loc['CLINICAL',
+                                                           groupby],
+                                         axis=1).size()
         else:
             return len(self.crosstab.columns)
 
