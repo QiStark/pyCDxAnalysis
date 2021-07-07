@@ -97,6 +97,15 @@ class CDx_Data():
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
 
+    def __add__(self,cdx):
+        cli = pd.concat([self.cli, cdx.cli]).drop_duplicates()
+        mut = pd.concat([self.mut, cdx.mut]).drop_duplicates()
+        cnv = pd.concat([self.cnv, cdx.cnv]).drop_duplicates()
+        sv = pd.concat([self.sv, cdx.sv]).drop_duplicates()
+
+        return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
+
+
     def from_PETA(self, token: str, json_str: str):
         """Retrieve CDx data from BGI-PETA database. 
 
