@@ -84,12 +84,15 @@ class CDx_Data():
         self.crosstab = self.get_crosstab()
 
     def __len__(self):
-        return len(self.cli)
+        return 0 if self.cli is None else len(self.cli)
 
     def __getitem__(self, n):
         return self.select_by_sample_ids([self.cli.sampleId.iloc[n]])
 
     def __sub__(self, cdx):
+        if self.cli is None and cdx.cli is None:
+            return CDx_Data()
+
         cli = pd.concat([self.cli, cdx.cli]).drop_duplicates(keep=False)
         mut = pd.concat([self.mut, cdx.mut]).drop_duplicates(keep=False)
         cnv = pd.concat([self.cnv, cdx.cnv]).drop_duplicates(keep=False)
@@ -97,14 +100,16 @@ class CDx_Data():
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
 
-    def __add__(self,cdx):
+    def __add__(self, cdx):
+        if self.cli is None and cdx.cli is None:
+            return CDx_Data()
+
         cli = pd.concat([self.cli, cdx.cli]).drop_duplicates()
         mut = pd.concat([self.mut, cdx.mut]).drop_duplicates()
         cnv = pd.concat([self.cnv, cdx.cnv]).drop_duplicates()
         sv = pd.concat([self.sv, cdx.sv]).drop_duplicates()
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
-
 
     def from_PETA(self, token: str, json_str: str):
         """Retrieve CDx data from BGI-PETA database. 
