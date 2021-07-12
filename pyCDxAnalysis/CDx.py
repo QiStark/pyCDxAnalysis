@@ -131,7 +131,7 @@ class CDx_Data():
 
         # dedup for the same sampleId in different studyIds, discard the duplicated ones from all tables
         cli_original = self.cli
-        self.cli = self.cli.drop_duplicates(subset=['sampleId', 'studyId'])
+        self.cli = self.cli.drop_duplicates('sampleId')
         if (len(self.cli) < len(cli_original)):
             print('Duplicated sampleId exists, drop duplicates and go on')
 
@@ -140,13 +140,13 @@ class CDx_Data():
 
         self.sv = self.sv[self.sv.apply(
             lambda x: (x['Tumor_Sample_Barcode'], x['studyId']) in undup_tuple,
-            axis=1)]
+            axis=1)].drop_duplicates()
         self.cnv = self.cnv[self.cnv.apply(
             lambda x: (x['Tumor_Sample_Barcode'], x['studyId']) in undup_tuple,
-            axis=1)]
+            axis=1)].drop_duplicates()
         self.mut = self.mut[self.mut.apply(
             lambda x: (x['Tumor_Sample_Barcode'], x['studyId']) in undup_tuple,
-            axis=1)]
+            axis=1)].drop_duplicates()
 
         # time series
         self.cli = self._infer_datetime_columns()
@@ -791,6 +791,9 @@ class CDx_Data():
         Returns:
             Union[float,pd.Series]: A pd.Series when groupby options passed, a float value when not.
         """
+        # empty CDx
+        if len(self)==0:
+            return pd.Series([], dtype='float64')
 
         crosstab = self.crosstab.reindex(index=variant_type_to_observe,
                                          level=0)
@@ -812,6 +815,11 @@ class CDx_Data():
                 self._crosstab_to_positive_rate)
         else:
             test_posi_rate = self._crosstab_to_positive_rate(crosstab)
+
+        # default to retrun a empty DataFrame which can cause problems
+        if (not isinstance(test_posi_rate,
+                           float)) and len(test_posi_rate) == 0:
+            test_posi_rate = pd.Series([], dtype='float64')
 
         return test_posi_rate
 
