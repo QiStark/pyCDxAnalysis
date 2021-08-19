@@ -472,19 +472,19 @@ class CDx_Data():
             cli_df['queryId'] = cli_df['sampleId'].map(
                 lambda x: ','.join(fuzzy_to_origin[transform(x)]))
 
-        if not self.mut is None:
+        if not self.mut is None and len(self.mut)!=0:
             mut_df = self.mut[self.mut['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
             mut_df = None
 
-        if not self.cnv is None:
+        if not self.cnv is None and len(self.cnv)!=0:
             cnv_df = self.cnv[self.cnv['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
             cnv_df = None
 
-        if not self.sv is None:
+        if not self.sv is None and len(self.sv)!=0:
             sv_df = self.sv[self.sv['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
@@ -617,13 +617,13 @@ class CDx_Data():
     # 基因组合可以做为入参数组来传入
     def select_samples_by_mutate_genes(
             self,
-            genes: list,
+            genes: list=[],
             variant_type: list = ['MUTATIONS', 'CNV', 'FUSION'],
             how='or'):
         """Select sample via positve variant genes.
 
         Args:
-            genes (list): Gene Hugo names.
+            genes (list): Gene Hugo names. Defaults to [] for all mutated genes
             variant_type (list, optional): Combination of MUTATIONS, CNV and SV. Defaults to ['MUTATIONS', 'CNV', 'SV'].
             how (str, optional): 'and' for variant in all genes, 'or' for variant in either genes. Defaults to 'or'.
 
@@ -634,7 +634,8 @@ class CDx_Data():
             CDx: CDx object of selected samples.
         """
         variant_crosstab = self.crosstab.reindex(index=variant_type, level=0)
-        variant_crosstab = variant_crosstab.reindex(index=genes, level=1)
+        if len(genes) != 0:
+            variant_crosstab = variant_crosstab.reindex(index=genes, level=1)
 
         # Certain variant_types or genes get a empty table. all.() bug
         if len(variant_crosstab) == 0:
@@ -649,7 +650,7 @@ class CDx_Data():
                 lambda x: any(pd.notnull(x)))
         elif how == 'and':
             # reindex multiindex bug
-            if len(genes) != gene_num:
+            if len(genes) != 0 and len(genes) != gene_num:
                 return CDx_Data()
 
             is_posi_sample = variant_crosstab.apply(
