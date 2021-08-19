@@ -93,10 +93,14 @@ class CDx_Data():
         if self.cli is None and cdx.cli is None:
             return CDx_Data()
 
-        cli = pd.concat([self.cli, cdx.cli]).drop_duplicates(keep=False)
-        mut = pd.concat([self.mut, cdx.mut]).drop_duplicates(keep=False)
-        cnv = pd.concat([self.cnv, cdx.cnv]).drop_duplicates(keep=False)
-        sv = pd.concat([self.sv, cdx.sv]).drop_duplicates(keep=False)
+        cli = None if self.cli is None and cdx.cli is None else pd.concat(
+            [self.cli, cdx.cli]).drop_duplicates(keep=False)
+        mut = None if self.mut is None and cdx.mut is None else pd.concat(
+            [self.mut, cdx.mut]).drop_duplicates(keep=False)
+        cnv = None if self.cnv is None and cdx.cnv is None else pd.concat(
+            [self.cnv, cdx.cnv]).drop_duplicates(keep=False)
+        sv = None if self.sv is None and cdx.sv is None else pd.concat(
+            [self.sv, cdx.sv]).drop_duplicates(keep=False)
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
 
@@ -472,19 +476,19 @@ class CDx_Data():
             cli_df['queryId'] = cli_df['sampleId'].map(
                 lambda x: ','.join(fuzzy_to_origin[transform(x)]))
 
-        if not self.mut is None and len(self.mut)!=0:
+        if not self.mut is None and len(self.mut) != 0:
             mut_df = self.mut[self.mut['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
             mut_df = None
 
-        if not self.cnv is None and len(self.cnv)!=0:
+        if not self.cnv is None and len(self.cnv) != 0:
             cnv_df = self.cnv[self.cnv['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
             cnv_df = None
 
-        if not self.sv is None and len(self.sv)!=0:
+        if not self.sv is None and len(self.sv) != 0:
             sv_df = self.sv[self.sv['Tumor_Sample_Barcode'].isin(
                 cli_df['sampleId'])]
         else:
@@ -617,7 +621,7 @@ class CDx_Data():
     # 基因组合可以做为入参数组来传入
     def select_samples_by_mutate_genes(
             self,
-            genes: list=[],
+            genes: list = [],
             variant_type: list = ['MUTATIONS', 'CNV', 'FUSION'],
             how='or'):
         """Select sample via positve variant genes.
@@ -793,7 +797,7 @@ class CDx_Data():
             Union[float,pd.Series]: A pd.Series when groupby options passed, a float value when not.
         """
         # empty CDx
-        if len(self)==0:
+        if len(self) == 0:
             return pd.Series([], dtype='float64')
 
         crosstab = self.crosstab.reindex(index=variant_type_to_observe,
