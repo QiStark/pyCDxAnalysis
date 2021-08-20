@@ -115,14 +115,14 @@ class CDx_Data():
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
 
-    def from_PETA(self, token: str, json_str: str):
+    def from_PETA(self, token: str, json_str: str, host='https://peta.bgi.com/api'):
         """Retrieve CDx data from BGI-PETA database. 
 
         Args:
             token (str): Effective token for BGI-PETA database
             json_str (str): The json format restrictions communicating to the database
         """
-        peta = Peta(token=token, host='https://peta.bgi.com/api')
+        peta = Peta(token=token, host=host)
         peta.set_data_restriction_from_json_string(json_str)
 
         # peta.fetch_clinical_data() does`not process dtype inference correctly, do manully.
