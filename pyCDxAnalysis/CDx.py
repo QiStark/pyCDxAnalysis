@@ -115,7 +115,10 @@ class CDx_Data():
 
         return CDx_Data(cli_df=cli, mut_df=mut, cnv_df=cnv, sv_df=sv)
 
-    def from_PETA(self, token: str, json_str: str, host='https://peta.bgi.com/api'):
+    def from_PETA(self,
+                  token: str,
+                  json_str: str,
+                  host='https://peta.bgi.com/api'):
         """Retrieve CDx data from BGI-PETA database. 
 
         Args:
@@ -876,11 +879,14 @@ class CDx_Data():
             Union[int, pd.Series]: Sample size. a pd.Series when groupby options passed.
         """
         if groupby:
-            return self.crosstab.groupby(self.crosstab.loc['CLINICAL',
-                                                           groupby],
-                                         axis=1).size()
+            if len(self) == 0:
+                return pd.Series([],dtype=float)
+            else:
+                return self.crosstab.groupby(self.crosstab.loc['CLINICAL',
+                                                               groupby],
+                                             axis=1).size()
         else:
-            return len(self.crosstab.columns)
+            return len(self)
 
     def gene_rearrangement_partner_distribute(self, genes=[]) -> pd.DataFrame:
         """Calculate the rearrangement partner distribution for input/all genes based on fusion table
