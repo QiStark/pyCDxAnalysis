@@ -71,6 +71,8 @@ class CDx_Data():
             sv_df (pd.DataFrame, optional): SV info. Defaults to None.
         """
 
+        self.json_str = None
+
         self.mut = mut_df
         self.cnv = cnv_df
         self.sv = sv_df
@@ -125,6 +127,7 @@ class CDx_Data():
             token (str): Effective token for BGI-PETA database
             json_str (str): The json format restrictions communicating to the database
         """
+        self.json_str = json_str
         peta = Peta(token=token, host=host)
         peta.set_data_restriction_from_json_string(json_str)
 
@@ -160,6 +163,14 @@ class CDx_Data():
         self.crosstab = self.get_crosstab()
 
         return filter_description(json_str)
+
+    def filter_description(self):
+        """retrun filter description when data load from PETA
+
+        Returns:
+            str: description
+        """
+        return filter_description(self.json_str) if self.json_str else None
 
     def from_file(self,
                   mut_f: str = None,
@@ -880,7 +891,7 @@ class CDx_Data():
         """
         if groupby:
             if len(self) == 0:
-                return pd.Series([],dtype=float)
+                return pd.Series([], dtype=float)
             else:
                 return self.crosstab.groupby(self.crosstab.loc['CLINICAL',
                                                                groupby],
