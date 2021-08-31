@@ -490,23 +490,23 @@ class CDx_Data():
         # multi hit represent as a string
         if fuzzy:
             cli_df['queryId'] = cli_df['sampleId'].map(
-                lambda x: ','.join(fuzzy_to_origin[transform(x)]))
+                lambda x: ','.join(fuzzy_to_origin[transform(x)])).copy()
 
         if not self.mut is None and len(self.mut) != 0:
             mut_df = self.mut[self.mut['Tumor_Sample_Barcode'].isin(
-                cli_df['sampleId'])]
+                cli_df['sampleId'])].copy()
         else:
             mut_df = None
 
         if not self.cnv is None and len(self.cnv) != 0:
             cnv_df = self.cnv[self.cnv['Tumor_Sample_Barcode'].isin(
-                cli_df['sampleId'])]
+                cli_df['sampleId'])].copy()
         else:
             cnv_df = None
 
         if not self.sv is None and len(self.sv) != 0:
             sv_df = self.sv[self.sv['Tumor_Sample_Barcode'].isin(
-                cli_df['sampleId'])]
+                cli_df['sampleId'])].copy()
         else:
             sv_df = None
 
