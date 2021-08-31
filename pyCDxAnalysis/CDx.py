@@ -7,6 +7,8 @@ import os
 from tableone import TableOne
 from collections import defaultdict
 from io import StringIO
+from .gene_patterns import *
+import plotly.express as px
 
 import pypeta
 from pypeta import Peta
@@ -789,6 +791,64 @@ class CDx_Data():
 
     def survival(self):
         pass
+
+    def plot_gene_variant_rate(self, genes=genes_688):
+        freq_mut_s = self.test_positive_rate(
+            genes_to_observe=genes,
+            groupby_genes=True,
+            variant_type_to_observe=['MUTATIONS']) * 100
+        freq_cnv_s = self.test_positive_rate(genes_to_observe=genes,
+                                             groupby_genes=True,
+                                             variant_type_to_observe=['CNV'
+                                                                      ]) * 100
+        freq_sv_s = self.test_positive_rate(genes_to_observe=genes,
+                                            groupby_genes=True,
+                                            variant_type_to_observe=['FUSION'
+                                                                     ]) * 100
+
+        #判定是否三种变异类型是0并处理
+        avalible_s = []
+        variantlist = [freq_mut_s, freq_cnv_s, freq_sv_s]
+        for i, x in enumerate(variantlist):
+            if len(x) != 0:
+                avalible_s.append(x)
+
+        if len(avalible_s) == 0:
+            return 'no data'
+
+        if len(freq_mut_s) == 0:
+            freq_mut_s = pd.Series([0] * len(avalible_s[0]),
+                                   index=avalible_s[0].index)
+
+        if len(freq_cnv_s) == 0:
+            freq_cnv_s = pd.Series([0] * len(avalible_s[0]),
+                                   index=avalible_s[0].index)
+
+        if len(freq_sv_s) == 0:
+            freq_sv_s = pd.Series([0] * len(avalible_s[0]),
+                                  index=avalible_s[0].index)
+
+        freq_s = pd.DataFrame({
+            'Mutations': freq_mut_s,
+            'CNV': freq_cnv_s,
+            'SV': freq_sv_s
+        }).fillna(0)
+
+        freq_s['total'] = freq_s.sum(axis=1)
+
+        freq_s = freq_s.sort_values(by='total', ascending=False)
+
+        fig = px.bar(
+            freq_s,
+            x=freq_s.index,
+            y=['Mutations', 'CNV', 'SV'],
+        )
+        #fig.update_traces(texttemplate='%{text:.2%}', textposition='outside',)
+        fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+        fig.layout.xaxis.title.text = None
+        fig.layout.yaxis.title.text = '检出率（%）'
+        fig.layout.legend.title.text = None
+        return fig
 
     # 画图的程序是否内置？
     def test_positive_rate(
