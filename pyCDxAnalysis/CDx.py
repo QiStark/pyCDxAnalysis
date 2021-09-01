@@ -204,7 +204,7 @@ class CDx_Data():
         self.cli = self._infer_datetime_columns()
         self.crosstab = self.get_crosstab()
 
-    def write_files(self, path: str = './'):
+    def to_tsvs(self, path: str = './'):
         """Write CDx_Data properties to 4 seprated files
 
         Args:
@@ -226,6 +226,24 @@ class CDx_Data():
             self.sv.to_csv(os.path.join(path, 'fusion_info.txt'),
                            index=None,
                            sep='\t')
+
+    def to_excel(self, filename: str = './output.xlsx'):
+        """Write CDx_Data properties to excel file
+
+        Args:
+            filename (str, optional): target filename. Defaults to './output.xlsx'.
+        """
+        if not filename.endswith('xlsx'):
+            filename = filename + '.xlsx'
+        with pd.ExcelWriter(filename) as ew:
+            if not self.cli is None:
+                self.cli.to_excel(ew, sheet_name='clinical', index=None)
+            if not self.mut is None:
+                self.mut.to_excel(ew, sheet_name='mutations', index=None)
+            if not self.cnv is None:
+                self.cnv.to_excel(ew, sheet_name='cnv', index=None)
+            if not self.sv is None:
+                self.sv.to_excel(ew, sheet_name='sv', index=None)
 
     def _set_cli(self):
         """Set the cli attribute, generate a void DataFrame when it is not specified. 
