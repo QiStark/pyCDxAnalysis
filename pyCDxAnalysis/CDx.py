@@ -544,7 +544,7 @@ class CDx_Data():
         Returns:
             CDx_Data: CDx_Data object
         """
-        if self.mut is None:
+        if self.mut is None or len(self.mut) == 0:
             mut = None
         else:
             mut = self._selector(self.mut, kwargs)
@@ -563,7 +563,7 @@ class CDx_Data():
         Returns:
             CDx_Data: CDx_Data object.
         """
-        if self.cnv is None:
+        if self.cnv is None or len(self.cnv) == 0:
             cnv = None
         else:
             cnv = self._selector(self.cnv, kwargs)
@@ -581,7 +581,7 @@ class CDx_Data():
         Returns:
             CDx_Data: CDx_Data object.
         """
-        if self.sv is None:
+        if self.sv is None or len(self.sv) == 0:
             sv = None
         else:
             sv = self._selector(self.sv, kwargs)
