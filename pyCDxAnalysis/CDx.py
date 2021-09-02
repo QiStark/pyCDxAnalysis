@@ -63,7 +63,8 @@ class CDx_Data():
                  mut_df: pd.DataFrame = None,
                  cli_df: pd.DataFrame = None,
                  cnv_df: pd.DataFrame = None,
-                 sv_df: pd.DataFrame = None):
+                 sv_df: pd.DataFrame = None,
+                 json_str: str = None):
         """Constructor method with DataFrames
 
         Args:
@@ -73,7 +74,7 @@ class CDx_Data():
             sv_df (pd.DataFrame, optional): SV info. Defaults to None.
         """
 
-        self.json_str = None
+        self.json_str = json_str
 
         self.mut = mut_df
         self.cnv = cnv_df
@@ -544,7 +545,7 @@ class CDx_Data():
             CDx_Data: CDx_Data object
         """
         if self.mut is None:
-            mut=None
+            mut = None
         else:
             mut = self._selector(self.mut, kwargs)
 
@@ -563,7 +564,7 @@ class CDx_Data():
             CDx_Data: CDx_Data object.
         """
         if self.cnv is None:
-            cnv=None
+            cnv = None
         else:
             cnv = self._selector(self.cnv, kwargs)
         return CDx_Data(cli_df=self.cli,
@@ -581,7 +582,7 @@ class CDx_Data():
             CDx_Data: CDx_Data object.
         """
         if self.sv is None:
-            sv=None
+            sv = None
         else:
             sv = self._selector(self.sv, kwargs)
         return CDx_Data(cli_df=self.cli,
