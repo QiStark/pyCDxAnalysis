@@ -544,9 +544,10 @@ class CDx_Data():
             CDx_Data: CDx_Data object
         """
         if self.mut is None:
-            raise VariantUndefinedError(f'mut variant undefied')
+            mut=None
+        else:
+            mut = self._selector(self.mut, kwargs)
 
-        mut = self._selector(self.mut, kwargs)
         return CDx_Data(cli_df=self.cli,
                         mut_df=mut,
                         cnv_df=self.cnv,
@@ -562,9 +563,9 @@ class CDx_Data():
             CDx_Data: CDx_Data object.
         """
         if self.cnv is None:
-            raise VariantUndefinedError(f'cnv variant undefied')
-
-        cnv = self._selector(self.cnv, kwargs)
+            cnv=None
+        else:
+            cnv = self._selector(self.cnv, kwargs)
         return CDx_Data(cli_df=self.cli,
                         mut_df=self.mut,
                         cnv_df=cnv,
@@ -580,9 +581,9 @@ class CDx_Data():
             CDx_Data: CDx_Data object.
         """
         if self.sv is None:
-            raise VariantUndefinedError(f'sv variant undefied')
-
-        sv = self._selector(self.sv, kwargs)
+            sv=None
+        else:
+            sv = self._selector(self.sv, kwargs)
         return CDx_Data(cli_df=self.cli,
                         mut_df=self.mut,
                         cnv_df=self.cnv,
